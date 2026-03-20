@@ -391,5 +391,5 @@ MIT License — free to use and modify.
 ---
 
 <div align="center">
-  Built with ❤️ using the MERN Stack
+  Built with ❤️ using the MERN as mini project.
 </div>
