@@ -1,0 +1,15 @@
+const express = require('express');
+const router = express.Router();
+const {
+  getCars, getCarById, createCar, updateCar, deleteCar, getFeaturedCars
+} = require('../controllers/carController');
+const { protect, adminOnly } = require('../middleware/authMiddleware');
+
+router.get('/featured', getFeaturedCars);
+router.get('/', getCars);
+router.get('/:id', getCarById);
+router.post('/', protect, adminOnly, createCar);
+router.put('/:id', protect, adminOnly, updateCar);
+router.delete('/:id', protect, adminOnly, deleteCar);
+
+module.exports = router;
