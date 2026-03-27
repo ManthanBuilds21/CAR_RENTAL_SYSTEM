@@ -1,9 +1,3 @@
-// ============================================================
-//  useCars.js
-//  Path: client/src/hooks/useCars.js
-//  No style changes needed — pure data hook, no UI.
-// ============================================================
-
 import { useState, useEffect, useCallback } from 'react';
 import carService from '../services/carService';
 
@@ -19,8 +13,12 @@ const useCars = (initialParams = {}) => {
     setError(null);
     try {
       const data = await carService.getCars(queryParams || params);
-      setCars(data.data);
-      setPagination({ total: data.total, pages: data.pages, currentPage: data.currentPage });
+      setCars(data.cars || []);  // ← was data.data, your API returns data.cars
+      setPagination({
+        total: data.total || 0,
+        pages: data.pages || 1,
+        currentPage: data.page || 1,  // ← was data.currentPage, API returns data.page
+      });
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to load cars');
     } finally {

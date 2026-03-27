@@ -1,132 +1,179 @@
-const asyncHandler = require('express-async-handler');
-const mongoose = require('mongoose');
 const Car = require('../models/Car');
-const imagekit = require('../config/imagekit');
 
-// @desc    Get all cars with filtering, sorting, pagination
+// @desc    Get all cars with filters, sort, pagination
 // @route   GET /api/cars
 // @access  Public
-const getCars = asyncHandler(async (req, res) => {
-   console.log('ID:', req.params.id);
-  const {
-    brand, type, fuelType, transmission, available,
-    minPrice, maxPrice, seats, search,
-    page = 1, limit = 9, sort = '-createdAt',
-  } = req.query;
+const getCars = async (req, res) => {
+  try {
+    const {
+      brand, type, fuelType, transmission, seats,
+      minPrice, maxPrice, available, search, sort, page = 1, limit = 9,
+    } = req.query;
 
-  const query = {};
+    console.log('ID:', req.params.id);
 
-  if (brand) query.brand = { $regex: brand, $options: 'i' };
-  if (type) query.type = type;
-  if (fuelType) query.fuelType = fuelType;
-  if (transmission) query.transmission = transmission;
-  if (available !== undefined) query.available = available === 'true';
-  if (seats) query.seats = Number(seats);
-  if (minPrice || maxPrice) {
-    query.pricePerDay = {};
-    if (minPrice) query.pricePerDay.$gte = Number(minPrice);
-    if (maxPrice) query.pricePerDay.$lte = Number(maxPrice);
+    const query = {};
+
+    if (brand) query.brand = { $regex: brand, $options: 'i' };
+    if (type) query.type = type;
+    if (fuelType) query.fuelType = fuelType;
+    if (transmission) query.transmission = transmission;
+    if (seats) query.seats = parseInt(seats);
+    if (available !== undefined) query.available = available === 'true';
+    if (minPrice || maxPrice) {
+      query.pricePerDay = {};
+      if (minPrice) query.pricePerDay.$gte = parseInt(minPrice);
+      if (maxPrice) query.pricePerDay.$lte = parseInt(maxPrice);
+    }
+    if (search) {
+      query.$text = { $search: search };
+    }
+
+    const sortOptions = {};
+    if (sort) {
+      const sortField = sort.startsWith('-') ? sort.slice(1) : sort;
+      sortOptions[sortField] = sort.startsWith('-') ? -1 : 1;
+    } else {
+      sortOptions.createdAt = -1;
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const total = await Car.countDocuments(query);
+    const cars = await Car.find(query).sort(sortOptions).skip(skip).limit(parseInt(limit));
+
+    res.json({
+      cars,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit)),
+      total,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-  if (search) {
-    query.$or = [
-      { brand: { $regex: search, $options: 'i' } },
-      { model: { $regex: search, $options: 'i' } },
-      { type: { $regex: search, $options: 'i' } },
-    ];
+};
+
+// @desc    Get featured cars
+// @route   GET /api/cars/featured
+// @access  Public
+const getFeaturedCars = async (req, res) => {
+  try {
+    const cars = await Car.find({ available: true }).sort({ rating: -1 }).limit(6);
+    res.json(cars);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-
-  const pageNum = parseInt(page, 10);
-  const limitNum = parseInt(limit, 10);
-  const skip = (pageNum - 1) * limitNum;
-
-  const total = await Car.countDocuments(query);
-  const cars = await Car.find(query).sort(sort).skip(skip).limit(limitNum);
-
-  res.json({
-    success: true,
-    count: cars.length,
-    total,
-    pages: Math.ceil(total / limitNum),
-    currentPage: pageNum,
-    data: cars,
-  });
-});
+};
 
 // @desc    Get single car
 // @route   GET /api/cars/:id
 // @access  Public
-const getCarById = asyncHandler(async (req, res) => {
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    res.status(400);
-    throw new Error('Invalid car ID format');
+const getCarById = async (req, res) => {
+  try {
+    const car = await Car.findById(req.params.id);
+    if (!car) return res.status(404).json({ message: 'Car not found' });
+    res.json(car);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-  const car = await Car.findById(req.params.id);
-  if (!car) {
-    res.status(404);
-    throw new Error('Car not found');
-  }
-  res.json({ success: true, data: car });
-});
+};
 
-// @desc    Create car (admin)
+// @desc    Create new car
 // @route   POST /api/cars
-// @access  Private/Admin
-const createCar = asyncHandler(async (req, res) => {
-  const car = await Car.create(req.body);
-  res.status(201).json({ success: true, data: car });
-});
+// @access  Admin
+const createCar = async (req, res) => {
+  try {
+    const car = await Car.create(req.body);
+    res.status(201).json(car);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
-// @desc    Update car (admin)
+// @desc    Update car
 // @route   PUT /api/cars/:id
-// @access  Private/Admin
-const updateCar = asyncHandler(async (req, res) => {
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    res.status(400);
-    throw new Error('Invalid car ID format');
+// @access  Admin
+const updateCar = async (req, res) => {
+  try {
+    const car = await Car.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+    if (!car) return res.status(404).json({ message: 'Car not found' });
+    res.json(car);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-  const car = await Car.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
-  if (!car) {
-    res.status(404);
-    throw new Error('Car not found');
-  }
-  res.json({ success: true, data: car });
-});
+};
 
-// @desc    Delete car (admin)
+// @desc    Delete car
 // @route   DELETE /api/cars/:id
-// @access  Private/Admin
-const deleteCar = asyncHandler(async (req, res) => {
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    res.status(400);
-    throw new Error('Invalid car ID format');
+// @access  Admin
+const deleteCar = async (req, res) => {
+  try {
+    const car = await Car.findByIdAndDelete(req.params.id);
+    if (!car) return res.status(404).json({ message: 'Car not found' });
+    res.json({ message: 'Car deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-  const car = await Car.findById(req.params.id);
-  if (!car) {
-    res.status(404);
-    throw new Error('Car not found');
-  }
+};
 
-  if (car.imageFileId) {
-    try {
-      await imagekit.deleteFile(car.imageFileId);
-    } catch (err) {
-      console.warn('ImageKit delete failed:', err.message);
-    }
-  }
-
-  await car.deleteOne();
-  res.json({ success: true, message: 'Car deleted successfully' });
-});
-
-// @desc    Get featured/available cars
-// @route   GET /api/cars/featured
+// @desc    Get cars near a location
+// @route   GET /api/cars/nearby?lat=...&lng=...&radius=...
 // @access  Public
-const getFeaturedCars = asyncHandler(async (req, res) => {
-  const cars = await Car.find({ available: true }).sort({ rating: -1 }).limit(6);
-  res.json({ success: true, data: cars });
-});
+const getNearbyCars = async (req, res) => {
+  try {
+    const { lat, lng, radius = 20 } = req.query;
 
-module.exports = { getCars, getCarById, createCar, updateCar, deleteCar, getFeaturedCars }; 
+    if (!lat || !lng) {
+      return res.status(400).json({ message: 'lat and lng query params are required' });
+    }
+
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+    const maxRadius = parseFloat(radius);
+
+    // Fetch all available cars that have coordinates
+    const cars = await Car.find({
+      available: true,
+      latitude: { $ne: null },
+      longitude: { $ne: null },
+    });
+
+    // Haversine formula — distance between two coordinates in km
+    const toRad = (val) => (val * Math.PI) / 180;
+    const getDistance = (lat1, lng1, lat2, lng2) => {
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    };
+
+    const nearbyCars = cars
+      .map((car) => ({
+        ...car.toObject(),
+        distance: parseFloat(getDistance(userLat, userLng, car.latitude, car.longitude).toFixed(2)),
+      }))
+      .filter((car) => car.distance <= maxRadius)
+      .sort((a, b) => a.distance - b.distance);
+
+    res.json({ count: nearbyCars.length, cars: nearbyCars });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  getCars,
+  getFeaturedCars,
+  getCarById,
+  createCar,
+  updateCar,
+  deleteCar,
+  getNearbyCars,
+};

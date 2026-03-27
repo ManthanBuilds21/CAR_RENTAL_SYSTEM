@@ -39,9 +39,16 @@ app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.originalUrl} not found` });
 });
 
-// Global error handler
+// ✅ FIXED: Global error handler
 app.use((err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
+  console.error('🔴 ERROR:', err.message);
+  if (process.env.NODE_ENV === 'development') console.error(err.stack);
+
+  const statusCode =
+    err.statusCode ||
+    err.status ||
+    (res.statusCode && res.statusCode !== 200 ? res.statusCode : 500);
+
   res.status(statusCode).json({
     success: false,
     message: err.message || 'Internal Server Error',

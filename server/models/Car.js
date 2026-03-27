@@ -71,6 +71,15 @@ const carSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // ── MAP FEATURE: added lat/lng ──
+    latitude: {
+      type: Number,
+      default: null,
+    },
+    longitude: {
+      type: Number,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -78,4 +87,4 @@ const carSchema = new mongoose.Schema(
 // Full-text search index
 carSchema.index({ brand: 'text', model: 'text', type: 'text' });
 
-module.exports = mongoose.model('Car', carSchema);
+module.exports = mongoose.model('Car', carSchema);  

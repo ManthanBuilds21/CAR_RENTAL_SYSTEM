@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 
 // Pages
+import MapPage from './pages/MapPage';
 import HomePage from './pages/HomePage';
 import CarsPage from './pages/CarsPage';
 import CarDetailPage from './pages/CarDetailPage';
@@ -33,11 +34,13 @@ function App() {
 
           <main className="flex-1">
             <Routes>
+              {/* Public Routes */}
               <Route path="/" element={<HomePage />} />
               <Route path="/cars" element={<CarsPage />} />
               <Route path="/cars/:id" element={<CarDetailPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/map" element={<MapPage />} />  {/* ✅ public */}
 
               {/* Protected Routes */}
               <Route element={<ProtectedRoute />}>
@@ -51,7 +54,6 @@ function App() {
                 <Route path="/admin/cars/new" element={<AddEditCarPage />} />
                 <Route path="/admin/cars/:id/edit" element={<AddEditCarPage />} />
               </Route>
-               
 
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
@@ -60,7 +62,6 @@ function App() {
           <Footer />
         </div>
 
-        {/* Toast Notifications */}
         <Toaster
           position="top-right"
           toastOptions={{
